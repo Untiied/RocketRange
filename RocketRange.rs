@@ -2,6 +2,14 @@ use rocket::http::{Status, ContentType, StatusClass};
 use rocket::response::{Responder, Response, Body};
 use rocket::request::Request;
 
+
+/*
+
+TODO: Add proper chrome support.
+
+Wrote by: Ausitn Mullins @ Tangent
+*/
+
 pub struct Range<T> {
     data: T
 }
@@ -14,7 +22,7 @@ impl<'t> Range<std::fs::File> {
         let mut all_bytes: Vec<u8> = vec!();
         file.read_to_end(&mut all_bytes).unwrap();
 
-        all_bytes[range[0] .. range[1]].to_vec()
+        all_bytes[range[0] .. range[1] + 1 ].to_vec()
     }
 }
 
@@ -67,8 +75,12 @@ impl<'t> rocket::response::Responder<'t> for Range<std::fs::File> {
         // Basis for a response came from: https://philna.sh/blog/2018/10/23/service-workers-beware-safaris-range-request/.
         let response = rocket::response::Response::build()
         .status(Status::new(206, "Partial Content"))
-        .sized_body(std::io::Cursor::new(data))
+       
+        //.header(rocket::http::Header::new("Content-Type", "video/mp4"))
+        .header(rocket::http::Header::new("Content-Length", ((parsed_range[1] - parsed_range[0]) + 1).to_string()))
         .header(rocket::http::Header::new("Content-Range", content_range_string))
+        .streamed_body(std::io::Cursor::new(data))
+        //.sized_body(std::io::Cursor::new(data))
         .finalize();
 
         Ok(response)
