@@ -13,7 +13,7 @@ To currently use this extension simply put this into your Cargo.toml
 
 [dependencies]
 
-rocket_range = { git = "https://github.com/Untiied/RocketRange" }
+rocket_range = { git = "https://github.com/Untiied/RocketRange", branch = "main" }
 
 As the project stands right now: 
 
