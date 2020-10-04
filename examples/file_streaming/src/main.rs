@@ -1,10 +1,14 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 #[macro_use] extern crate rocket;
 
+use rocket_contrib::serve::StaticFiles;
+use std::path::{Path, PathBuf};
+use std::fs::File;
+
 #[get("/streaming/<file..>", rank = 1)]
-fn streaming_files(file: PathBuf) -> RocketRange::Range<File> {
+fn streaming_files(file: PathBuf) -> rocket_range::Range<File> {
     let file = File::open(Path::new("assets").join(file)).unwrap();
-    return RocketRange::Range::new(file)
+    return rocket_range::Range::new(file)
 }
 
 fn rocket() -> rocket::Rocket {

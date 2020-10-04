@@ -7,3 +7,5 @@ workspace = "../../"
 
 [dependencies]
 rocket_range = { path = "../../core/lib" }
+rocket = "0.4.5"
+rocket_contrib = "0.4.5"

@@ -94,4 +94,3 @@ impl<'t> rocket::response::Responder<'t> for Range<std::fs::File> {
         Ok(response)
     }
 }
-

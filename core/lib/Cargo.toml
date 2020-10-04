@@ -11,3 +11,6 @@ keywords = ["rocket", "web", "streaming", "safari"]
 license = "MIT OR Apache-2.0"
 categories = ["web-programming::http"]
 edition = "2018"
+
+[dependencies]
+rocket = "0.4.5"
