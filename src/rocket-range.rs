@@ -1,14 +1,22 @@
+/*
+    This file is written as a standalone solution to allow File streaming 
+    for the async web framwork "Rocket" for Rust. The biggest problem using
+    this custom Responder type is to allow for video streaming to the Safari
+    browser.
+    
+    The issue this was made to solve has been known since 2018 but hasn't seen
+    any significant progress. Due to the severity of the issue, I decided to create
+    a good standalone implmentation. (https://github.com/SergioBenitez/Rocket/issues/806)
+    
+    Original Author: Austin Mullins
+    Created: 10/04/2020
+
+    (c) Copyright by Tangent Inc.
+*/
+
 use rocket::http::{Status, ContentType, StatusClass};
 use rocket::response::{Responder, Response, Body};
 use rocket::request::Request;
-
-
-/*
-
-TODO: Add proper chrome support.
-
-Wrote by: Ausitn Mullins @ Tangent
-*/
 
 pub struct Range<T> {
     data: T
