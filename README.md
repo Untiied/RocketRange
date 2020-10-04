@@ -1,5 +1,5 @@
 # RocketRange
-Video streaming support for Rocket
+Rocket (web framework) extension to provide video / file "range" support.
 
 The purpose of this file is to provide a top level solution to Rocket not supporting the "Range" command for files. This allows us to create a custom response for the routing system.
 

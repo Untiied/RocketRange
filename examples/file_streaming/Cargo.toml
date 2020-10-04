@@ -1,0 +1,9 @@
+[package]
+name = "file_streaming"
+version = "0.0.0"
+edition = "2018"
+publish = false
+workspace = "../../"
+
+[dependencies]
+rocket_range = { path = "../../core/lib" }

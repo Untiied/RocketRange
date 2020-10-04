@@ -1,0 +1,13 @@
+[package]
+name = "rocket_range"
+version = "0.1.0"
+authors = ["Austin Mullins <austinmullins9@gmail.com>"]
+description = """
+Rocket (web framework) extension to provide video / file range support.
+"""
+repository = "https://github.com/Untiied/RocketRange"
+readme = "../../README.md"
+keywords = ["rocket", "web", "streaming", "safari"]
+license = "MIT OR Apache-2.0"
+categories = ["web-programming::http"]
+edition = "2018"
