@@ -27,11 +27,15 @@ pub struct Range<T> {
 }
 
 impl<'t> Range<std::fs::File> {
+
+    // "Generates" an ETag, this should be fleshed out more for uniquness, but for right now we are
+    // just going to use the length of the video.
     pub fn generate_etag(&self) -> String {
         /* We should also add the time last modified from the metadata */
         self.data.metadata().unwrap().len().to_string()
     }
 
+    // This will get only the bytes that were requested form our local data pool.
     pub fn get_data(&self, range: Vec<usize>) -> Vec<u8> {
         use std::io::Read;
 
@@ -66,6 +70,8 @@ impl<'t, T: 't> Range<T> {
 		Range { data }
     }
     
+    // This shouldn't ever be used, but just in case we can't services a request at all
+    // it will tell the client that something was funky.
     pub fn invalidate_stream(&self) -> rocket::response::Result<'t> {
         let response = rocket::response::Response::build()
         .status(Status::new(416, "Range Not Satisfiable"))
@@ -74,6 +80,19 @@ impl<'t, T: 't> Range<T> {
         Ok(response)
     }
 
+    // According to RFC-2616 we can send the client 304 to signify that
+    // we haven't changed the file at all and it has the most up to-date one.
+    // https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.3
+    pub fn reassure_stream(&self) -> rocket::response::Result<'t> {
+        let response = rocket::response::Response::build()
+        .status(Status::new(304, "Not Modified"))
+        .finalize();
+
+        Ok(response)
+    }
+
+    // This function just takes in the string for the range, and will parse the range 
+    // into the corresponding Integer values.
     pub fn convert_range(&self, range_string: String) -> Result<Vec<usize>, std::num::ParseIntError> {
         let starting_pos: usize = range_string.find("=").unwrap();
         let middle_dash_pos: usize = range_string.find("-").unwrap();
@@ -95,6 +114,24 @@ impl<'t> rocket::response::Responder<'t> for Range<std::fs::File> {
         let content_size: u64 = self.data.metadata().unwrap().len();
         let last_edited_date: DateTime<Utc> = self.data.metadata().unwrap().modified().unwrap().into();
 
+        // Generate the ETag for the file. 
+        // The ETag helps the caching system to not waste bandwidth because out file hasn't
+        // changed since the last time we downloaded it.
+        let etag = self.generate_etag();
+
+        // Check if our ETag vaules are the same as the clients, if so,
+        // just tell the client it has the most up to-date version, and theres no need to update.Utc
+        match request.headers().get_one("etag") {
+            Some(request_etag) => {
+                if request_etag == etag {
+                    return self.reassure_stream();
+                }
+            }
+            // Nothing needs to happen here so we can just continue the function.
+            None => {}
+        }
+
+        /* Here we get the range header from the request */
         let requested_range = match request.headers().get_one("range") {
             Some(range) => range,
             /* If we cannot parse the range from the request then stop trying to stream a video. */
@@ -106,23 +143,22 @@ impl<'t> rocket::response::Responder<'t> for Range<std::fs::File> {
             Ok(range) => range,
             Err(_) => return self.send_whole_file(content_size, last_edited_date.format("%a, %d %b %Y %T %Z").to_string())
         };
-        println!("Range of the video request is: {:?}", parsed_range);
 
         /* get the data for the file */
         /* TODO: We are wasting memory here */
         let data = self.get_data(parsed_range.clone());
 
+        /* This is just setting up the values to be send to the client. */
         let content_range_string = String::from("bytes ") + &parsed_range[0].to_string() + "-" + &parsed_range[1].to_string() + "/" + &content_size.to_string();
-       
-        // Generate the ETag for the file. 
-        // The ETag helps the caching system to not waste bandwidth because out file hasn't
-        // changed since the last time we downloaded it.
-        let etag = self.generate_etag();
+        let expire_time: DateTime<Utc> = (std::time::SystemTime::now() + std::time::Duration::from_secs(3600)).into();
 
-        // Basis for a response came from: https://philna.sh/blog/2018/10/23/service-workers-beware-safaris-range-request/.
+        // Basis for a response came from: https://philna.sh/blog/2018/10/23/service-workers-beware-safaris-range-request/ &
+        // the RFC-2616 standard listed above.
+        // I have no clue if we are sending too much information, but this is the call where it worked.
         let response = rocket::response::Response::build()
         .status(Status::new(206, "Partial Content"))
         .header(rocket::http::Header::new("ETag", etag))
+        .header(rocket::http::Header::new("Expires", expire_time.format("%a, %d %b %Y %T %Z").to_string()))
         .header(rocket::http::Header::new("Accept-Ranges", "bytes"))
         .header(rocket::http::Header::new("Content-Type", "video/mp4"))
         .header(rocket::http::Header::new("Content-Range", content_range_string))
