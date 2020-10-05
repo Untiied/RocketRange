@@ -14,14 +14,24 @@
     (c) Copyright by Tangent Inc.
 */
 
+extern crate chrono;
+
 use rocket::http::Status;
 use rocket::request::Request;
+
+use chrono::offset::Utc;
+use chrono::DateTime;
 
 pub struct Range<T> {
     data: T
 }
 
 impl<'t> Range<std::fs::File> {
+    pub fn generate_etag(&self) -> String {
+        /* We should also add the time last modified from the metadata */
+        self.data.metadata().unwrap().len().to_string()
+    }
+
     pub fn get_data(&self, range: Vec<usize>) -> Vec<u8> {
         use std::io::Read;
 
@@ -31,6 +41,24 @@ impl<'t> Range<std::fs::File> {
 
         all_bytes[range[0] .. range[1] + 1 ].to_vec()
     }
+
+    // This added in support for browsers other than Safari. 
+    // This will send the browers the entire file because that's how they choose to handle it.
+    pub fn send_whole_file(&self, len: u64, last_edited: String) -> rocket::response::Result<'t> {
+        let data = self.get_data(vec!(0, len as usize - 1));
+
+        let response = rocket::response::Response::build()
+        .status(Status::new(200, "OK"))
+        .header(rocket::http::Header::new("Accept-Ranges", "bytes"))
+        .header(rocket::http::Header::new("Content-Type", "video/mp4"))
+        .header(rocket::http::Header::new("Content-Length", len.to_string()))
+        .header(rocket::http::Header::new("Last-Modified", last_edited))
+        .sized_body(std::io::Cursor::new(data))
+        .finalize();
+
+        Ok(response)
+    }
+
 }
 
 impl<'t, T: 't> Range<T> {
@@ -46,14 +74,14 @@ impl<'t, T: 't> Range<T> {
         Ok(response)
     }
 
-    pub fn convert_range(&self, range_string: String) -> Vec<usize> {
+    pub fn convert_range(&self, range_string: String) -> Result<Vec<usize>, std::num::ParseIntError> {
         let starting_pos: usize = range_string.find("=").unwrap();
         let middle_dash_pos: usize = range_string.find("-").unwrap();
 
         let first = &range_string[(starting_pos + 1) .. middle_dash_pos];
         let second = &range_string[(middle_dash_pos + 1) .. range_string.len()];
 
-        vec!(first.parse::<usize>().unwrap(), second.parse::<usize>().unwrap())
+        Ok(vec!(first.parse::<usize>()?, second.parse::<usize>()?))
     }
 }
 
@@ -62,6 +90,11 @@ impl<'t> rocket::response::Responder<'t> for Range<std::fs::File> {
 
     /* This is the main function given to use from Responder trait. */
     fn respond_to(self, request: &Request) -> rocket::response::Result<'t> {
+
+        /* We are going to gather all of the meta data prior to actually starting the function */
+        let content_size: u64 = self.data.metadata().unwrap().len();
+        let last_edited_date: DateTime<Utc> = self.data.metadata().unwrap().modified().unwrap().into();
+
         let requested_range = match request.headers().get_one("range") {
             Some(range) => range,
             /* If we cannot parse the range from the request then stop trying to stream a video. */
@@ -69,26 +102,33 @@ impl<'t> rocket::response::Responder<'t> for Range<std::fs::File> {
         };
 
         /* Let's gather the actually range of memory that the client is requesting!*/
-        let parsed_range = self.convert_range(requested_range.to_string());
+        let parsed_range = match self.convert_range(requested_range.to_string()) {
+            Ok(range) => range,
+            Err(_) => return self.send_whole_file(content_size, last_edited_date.format("%a, %d %b %Y %T %Z").to_string())
+        };
         println!("Range of the video request is: {:?}", parsed_range);
 
         /* get the data for the file */
         /* TODO: We are wasting memory here */
         let data = self.get_data(parsed_range.clone());
 
-        let content_size: u64 = self.data.metadata().unwrap().len();
         let content_range_string = String::from("bytes ") + &parsed_range[0].to_string() + "-" + &parsed_range[1].to_string() + "/" + &content_size.to_string();
+       
+        // Generate the ETag for the file. 
+        // The ETag helps the caching system to not waste bandwidth because out file hasn't
+        // changed since the last time we downloaded it.
+        let etag = self.generate_etag();
 
         // Basis for a response came from: https://philna.sh/blog/2018/10/23/service-workers-beware-safaris-range-request/.
         let response = rocket::response::Response::build()
         .status(Status::new(206, "Partial Content"))
-       
-        //.header(rocket::http::Header::new("Content-Type", "video/mp4"))
-        .header(rocket::http::Header::new("Content-Length", ((parsed_range[1] - parsed_range[0]) + 1).to_string()))
+        .header(rocket::http::Header::new("ETag", etag))
+        .header(rocket::http::Header::new("Accept-Ranges", "bytes"))
+        .header(rocket::http::Header::new("Content-Type", "video/mp4"))
         .header(rocket::http::Header::new("Content-Range", content_range_string))
-        .header(rocket::http::Header::new("Cache-Control", "max-age=3600"))
+        .header(rocket::http::Header::new("Content-Length", ((parsed_range[1] - parsed_range[0]) + 1).to_string()))
+        .header(rocket::http::Header::new("Last-Modified", last_edited_date.format("%a, %d %b %Y %T %Z").to_string()))
         .streamed_body(std::io::Cursor::new(data))
-        //.sized_body(std::io::Cursor::new(data))
         .finalize();
 
         Ok(response)
