@@ -1,6 +1,6 @@
 [package]
 name = "rocket_range"
-version = "0.1.0"
+version = "0.5.0"
 authors = ["Austin Mullins <austinmullins9@gmail.com>"]
 description = """
 Rocket (web framework) extension to provide video / file range support.

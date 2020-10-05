@@ -143,6 +143,7 @@ impl<'t> rocket::response::Responder<'t> for Range<std::fs::File> {
             Ok(range) => range,
             Err(_) => return self.send_whole_file(content_size, last_edited_date.format("%a, %d %b %Y %T %Z").to_string())
         };
+        println!("    => Requested range: {:?}", parsed_range);
 
         /* get the data for the file */
         /* TODO: We are wasting memory here */
