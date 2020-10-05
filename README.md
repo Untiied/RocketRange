@@ -1,25 +1,20 @@
 # RocketRange
-Rocket (web framework) extension to provide video / file "range" support.
+Rocket (web framework) extension to provide video / file "range" support for Safari.
+The purpose of this project is to provide a top-level solution to Rocket not supporting the "Range" command for Safari.
 
-** Just like the Rocket web framework this library requires the use of the nightly version of Rust. **
-** Use this link to determine the best nightly setup for you [Rust Docs](https://doc.rust-lang.org/edition-guide/rust-2018/rustup-for-managing-rust-versions.html).
-
-
-The purpose of this file is to provide a top-level solution to Rocket not supporting the "Range" command for files. This allows us to create a custom response for the routing system.
+Just like the Rocket web framework this library requires the use of the nightly version of Rust.
+Use this link to determine the best nightly setup for you [Rust Docs](https://doc.rust-lang.org/edition-guide/rust-2018/rustup-for-managing-rust-versions.html)
 
 
-To currently use this extension simply put this into your Cargo.toml
-
-
+To currently use this extension, simply put this into your Cargo.toml
+```sh
 [dependencies]
-
 rocket_range = { git = "https://github.com/Untiied/RocketRange", branch = "main" }
+```
 
 As the project stands right now: 
 
- - Safari can play a supplied video
- - Network calls are missed (more than likely because of the bad file implementation)
- - Chrome / Firefox will crash their Rocket thread.
+ - Safari, Chromium, and Firefox can play a supplied video
+ - Network calls can be missed sometimes when the client is requesting multiple Range requests.
+ - RocketRange is just as production ready as Rocket itself is.
 
-
-Pull requests are more than welcomed. 
