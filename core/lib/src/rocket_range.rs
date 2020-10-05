@@ -14,8 +14,7 @@
     (c) Copyright by Tangent Inc.
 */
 
-use rocket::http::{Status, ContentType, StatusClass};
-use rocket::response::{Responder, Response, Body};
+use rocket::http::Status;
 use rocket::request::Request;
 
 pub struct Range<T> {
@@ -87,6 +86,7 @@ impl<'t> rocket::response::Responder<'t> for Range<std::fs::File> {
         //.header(rocket::http::Header::new("Content-Type", "video/mp4"))
         .header(rocket::http::Header::new("Content-Length", ((parsed_range[1] - parsed_range[0]) + 1).to_string()))
         .header(rocket::http::Header::new("Content-Range", content_range_string))
+        .header(rocket::http::Header::new("Cache-Control", "max-age=3600"))
         .streamed_body(std::io::Cursor::new(data))
         //.sized_body(std::io::Cursor::new(data))
         .finalize();
